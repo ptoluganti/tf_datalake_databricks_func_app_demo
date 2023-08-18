@@ -1,0 +1,105 @@
+name: 05 Dev Resources
+
+on: workflow_dispatch
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  plan:
+    name: Run Terraform Plan
+    runs-on: ubuntu-latest
+    env:
+      ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID_SAND }}
+      ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID_SAND }}
+      ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID_SAND }}
+      AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      GH_TOKEN: ${{ secrets.GH_TOKEN }}
+
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v3
+
+      - name: "Az CLI login"
+        uses: azure/login@v1
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID_SAND }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID_SAND }}
+
+      - name: "Generate backend.tf"
+        run: |
+          bash +x ./scripts/generate-backend.sh .
+        env:
+          STATE_FILE_NAME: be-apps-rs
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+
+      - name: "Update Git Config"
+        run: |
+          git config --global url."https://${GH_TOKEN}@github.com".insteadOf https://github.com
+
+      - name: "Run Terraform"
+        run: |
+          bash +x ./scripts/terraform-plan-action.sh .
+        env:
+          TF_WORKSPACE: dev
+
+      - name: "Upload Artifact"
+        uses: actions/upload-artifact@v3
+        with:
+          name: tfplan
+          path: tfplanoutput
+          if-no-files-found: error
+
+  apply:
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request_target'
+    name: Run Terraform Apply
+    runs-on: ubuntu-latest
+    environment: dev-apply
+    needs: plan
+    env:
+      ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID_SAND }}
+      ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID_SAND }}
+      ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID_SAND }}
+      AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      GH_TOKEN: ${{ secrets.GH_TOKEN }}
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v3
+
+      - name: "Az CLI login"
+        uses: azure/login@v1
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID_SAND }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID_SAND }}
+
+      - name: "Generate backend.tf"
+        run: |
+          bash +x ./scripts/generate-backend.sh .
+        env:
+          STATE_FILE_NAME: be-apps-rs
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+
+      - name: "Update Git Config"
+        run: |
+          git config --global url."https://${GH_TOKEN}@github.com".insteadOf https://github.com
+
+      - name: Download artifact
+        uses: actions/download-artifact@v3
+        with:
+          name: tfplan
+          path: .
+
+      # - name: "Run Terraform"
+      #   run: |
+      #     bash +x ./scripts/terraform-apply-action.sh .
+      #   env:
+      #     TF_WORKSPACE: dev
