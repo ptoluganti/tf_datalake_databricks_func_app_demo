@@ -25,7 +25,7 @@ public class HttpResponseBody<T>
         }
     }
 
-var body = await req.GetBodyAsync<Movie>();
+    var body = await req.GetBodyAsync<Movie>();
     if (body.IsValid)
     {
        return new OkObjectResult(body.Value);
@@ -34,4 +34,16 @@ var body = await req.GetBodyAsync<Movie>();
     {
        return new BadRequestObjectResult($"Model is invalid: {string.Join(", ", body.ValidationResults.Select(s => s.ErrorMessage).ToArray())}");
     }
+
+
+var sb = new StringBuilder();
+    var identity = req.HttpContext?.User?.Identity as ClaimsIdentity;
+    sb.AppendLine($"IsAuthenticated: {identity?.IsAuthenticated}");
+    sb.AppendLine($"Identity name: {identity?.Name}");
+    sb.AppendLine($"AuthenticationType: {identity?.AuthenticationType}");
+    foreach (var claim in identity?.Claims)
+    {
+        sb.AppendLine($"Claim: {claim.Type} : {claim.Value}");
+    }
+        return new OkObjectResult(sb.ToString());
 ```
