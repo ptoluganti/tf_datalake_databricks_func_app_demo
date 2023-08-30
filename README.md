@@ -24,4 +24,14 @@ public class HttpResponseBody<T>
             return body;
         }
     }
+
+var body = await req.GetBodyAsync<Movie>();
+    if (body.IsValid)
+    {
+       return new OkObjectResult(body.Value);
+    }
+    else
+    {
+       return new BadRequestObjectResult($"Model is invalid: {string.Join(", ", body.ValidationResults.Select(s => s.ErrorMessage).ToArray())}");
+    }
 ```
